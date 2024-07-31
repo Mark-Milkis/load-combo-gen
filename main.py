@@ -12,7 +12,7 @@ from  bigtree import Node, find_name, find_names, shift_nodes, preorder_iter
 # if they are not explicitly defined in the load_factors dictionary.
 
 
-# TODO: Iterate through the load_groups dictionary and determine the parent/child relationships between load groups.
+# Iterate through the load_groups dictionary and determine the parent/child relationships between load groups.
 # Leaf nodes are load cases while parent nodes are load groups. Create classes to represent these relationships.
 # the classes should have attributes for the name of the group, the parent group, and the children groups. As well as an attribute for the load factor for each load combination.
 # The class should have a method for retrieving the dictionary of load combinations and load factors. In case a load factor is not explicitly defined, it should inherit the load factor from the parent group.
@@ -24,23 +24,23 @@ class LoadItem(Node):
         if additive is not None:
             self.set_attrs({"additive": additive})
 
-    def add_combination_factor(self, load_combination, combination_factor):
-        combination_factors = self.get_attr("combination_factors")
-        if combination_factors is None:
-            combination_factors = {}
-        combination_factors[load_combination] = combination_factor
-        self.set_attrs({"combination_factors": combination_factors})
+    # def add_combination_factor(self, load_combination, combination_factor):
+    #     combination_factors = self.get_attr("combination_factors")
+    #     if combination_factors is None:
+    #         combination_factors = {}
+    #     combination_factors[load_combination] = combination_factor
+    #     self.set_attrs({"combination_factors": combination_factors})
 
-    def get_combination_factors(self):
-        # Get the load factors for this load item, if they are not defined, inherit them from the parent recursively
-        # if none of the parents have a load factor defined, return None
-        load_factors = self.get_attr("combination_factors")
-        if load_factors is not None:
-            return load_factors
-        elif self.parent is not None:
-            return self.parent.get_combination_factors()
-        else:
-            return None
+    # def get_combination_factors(self):
+    #     # Get the load factors for this load item, if they are not defined, inherit them from the parent recursively
+    #     # if none of the parents have a load factor defined, return None
+    #     load_factors = self.get_attr("combination_factors")
+    #     if load_factors is not None:
+    #         return load_factors
+    #     elif self.parent is not None:
+    #         return self.parent.get_combination_factors()
+    #     else:
+    #         return None
         
     def set_load_factor(self, load_factor):
         self.set_attrs({"load_factor": load_factor})
@@ -100,67 +100,116 @@ class LoadItem(Node):
                     )
         return load_group_hierarchy
 
-    def assign_combination_factors(self, load_factors):
-        for load_combination_name, load_combination_data in load_factors.items():
-            for group_name, group_data in load_combination_data.items():
-                if isinstance(group_data, dict):
-                    for subgroup_name, subgroup_data in group_data.items():
-                        subgroup_extended_name = f"{group_name}_{subgroup_name}"
-                        subgroup = find_name(self, subgroup_extended_name)
-                        subgroup.add_combination_factor(load_combination_name, subgroup_data)
-                else:
-                    group = find_name(self, group_name)
-                    group.add_combination_factor(load_combination_name, group_data)
+    # def assign_combination_factors(self, load_factors): # Not used in the load combination tree
+    #     """
+    #     Assigns combination factors to the corresponding load combinations and groups/subgroups.
+
+    #     Args:
+    #         load_factors (dict): A dictionary containing load combination factors.
+    #             The dictionary structure should be as follows:
+    #             {
+    #                 "load_combination_name": {
+    #                     "group_name": {
+    #                         "subgroup_name": subgroup_data,
+    #                         ...
+    #                     },
+    #                     ...
+    #                 },
+    #                 ...
+    #             }
+    #             The subgroup_data can be a dictionary or a single value.
+
+    #     Returns:
+    #         None
+    #     """
+    #     for load_combination_name, load_combination_data in load_factors.items():
+    #         for group_name, group_data in load_combination_data.items():
+    #             if isinstance(group_data, dict):
+    #                 for subgroup_name, subgroup_data in group_data.items():
+    #                     subgroup_extended_name = f"{group_name}_{subgroup_name}"
+    #                     subgroup = find_name(self, subgroup_extended_name)
+    #                     subgroup.add_combination_factor(load_combination_name, subgroup_data)
+    #             else:
+    #                 group = find_name(self, group_name)
+    #                 group.add_combination_factor(load_combination_name, group_data)
       
 class LoadCombinationSet(Node):
     def __init__(self, name):
         super().__init__(name)
 
-    def is_additive(self):
-        if self.depth == 1:
-            return False
-        else:
-            return True
+    # def is_additive(self):
+    #     if self.depth == 1:
+    #         return False
+    #     else:
+    #         return True
 
     @classmethod
-    def create_tree(cls, load_group_tree, load_factors):
-    # Create a new tree structure that contains the load combinations and load factors
-    # creates a copy of the load_group_tree and assigns the load factors to the appropriate nodes
-        load_combination_tree = cls("CombinationSetRoot")
+    def create_tree(cls, load_group_tree, load_factors, clean_tree=True):
+        """
+        Create a new tree structure that contains the load combinations and load factors.
+
+        Args:
+            cls (class): The class used to create the load combination tree.
+            load_group_tree (Tree): The original load group tree.
+            load_factors (dict): A dictionary containing the load factors for each load combination.
+            clean_tree (bool, optional): Flag indicating whether to clean the tree after assigning load factors. 
+                Defaults to True.
+
+        Returns:
+            dict: A dictionary containing the load combination sets, where the keys are the load combination names 
+            and the values are the corresponding load combination trees.
+        """
+        load_combination_sets = {}
+
         for load_combination_name, load_combination_data in load_factors.items():
-            load_combination = cls(load_combination_name)
-            load_combination_tree.append(load_combination)
+            load_combination_tree = cls(load_combination_name)
+
             # clone the load_group_tree into the load_combination_tree under the load_combination node
-            load_combination.extend(load_group_tree.copy())
+            load_combination_tree.extend(load_group_tree.copy())
 
             for group_name, group_data in load_combination_data.items():
                 if isinstance(group_data, dict):
                     for subgroup_name, subgroup_data in group_data.items():
                         subgroup_extended_name = f"{group_name}_{subgroup_name}"
-                        subgroup = find_name(load_combination, subgroup_extended_name)
+                        subgroup: LoadItem = find_name(load_combination_tree, subgroup_extended_name)
                         subgroup.set_load_factor(subgroup_data)
                 else:
-                    group = find_name(load_combination, group_name)
+                    group: LoadItem = find_name(load_combination_tree, group_name)
                     group.set_load_factor(group_data)
 
-        return load_combination_tree
+            if clean_tree:
+                load_combination_tree.clean_tree()
+
+            load_combination_sets[load_combination_name] = load_combination_tree
+        return load_combination_sets
 
     def clean_tree(self):
-        # Remove all nodes that do not have a load factor assigned
+        """
+        Removes all nodes that do not have a load factor assigned.
+
+        This method iterates over the tree in a preorder traversal and removes any nodes that are instances of `LoadItem`
+        and do not have a child load factor assigned and do not have a load factor assigned themselves.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         for node in preorder_iter(self):
             if isinstance(node, LoadItem):
                 if node.check_chid_load_factors() is False and node.get_load_factor() is None:
                     shift_nodes(self, [node.path_name],[None], delete_children=True)
 
-    def remove_nonbranching_groups(self):
-        while True:
-            branching_groups_found = False
-            for node in preorder_iter(self):
-                if node.children == () and node.parent.is_additive():
-                    shift_nodes(self, [node.path_name], [None])
-                    branching_groups_found = True
-            if not branching_groups_found:
-                break
+    # def remove_nonbranching_groups(self):
+    #     while True:
+    #         branching_groups_found = False
+    #         for node in preorder_iter(self):
+    #             if node.children == () and node.parent.is_additive():
+    #                 shift_nodes(self, [node.path_name], [None])
+    #                 branching_groups_found = True
+    #         if not branching_groups_found:
+    #             break
 
 
 
@@ -215,18 +264,19 @@ if __name__ == "__main__":
             "Live": {"Perm": 1.0, "Pattern": 1.0},
             "Wind": 1.0,
         },
-        "Lateral Envelope": {
+        "Lateral-Envelope": {
             "Lateral": {"Wind": 1.0, "Seismic": 1.0}
         },
     }
 
     load_group_tree = LoadItem.create_tree(load_groups)
 
-    load_group_tree.assign_combination_factors(load_factors)
+    # load_group_tree.assign_combination_factors(load_factors)
 
     # load_group_tree.show(attr_list=["additive","combination_factors"])
 
-    load_combination_tree = LoadCombinationSet.create_tree(load_group_tree, load_factors)
-    load_combination_tree.clean_tree()
-    load_combination_tree.remove_nonbranching_groups()
-    load_combination_tree.show(attr_list=["additive","load_factor"])
+    load_combination_sets = LoadCombinationSet.create_tree(load_group_tree, load_factors, clean_tree=True)
+    
+    for load_combination_name, load_combination_tree in load_combination_sets.items():
+        # print(f"Load Combination: {load_combination_name}")
+        load_combination_tree.show(attr_list=["additive","load_factor"])
