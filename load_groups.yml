@@ -1,0 +1,71 @@
+# load_groups.yml
+#
+# This YAML file defines the load groups for various load combinations used in structural analysis.
+# Each load group is represented as a key, with the corresponding load cases or sub-groups as nested keys.
+#
+# Example:
+# Dead:     # Load group for dead loads, as all dead loads are applied together, subgroups are not defined
+#   - DL    # Each entry is a load case
+#   - SDL
+#
+# Live:    # Load group for live loads, as live loads are applied in different ways, subgroups are defined
+#   Perm:  # Subgroup for permanent live loads, load cases defined in this subgroup will not be combined with other subgroups
+#     - LL
+#   Construction:
+#     - LL_Construction
+#   Pattern:
+#     - LL_Pattern
+#
+# Wind:
+#   North:
+#     - WL_Frame_North
+#     - WL_Cladding_North
+#   West:
+#     - WL_Frame_West
+#     - WL_Cladding_West
+#
+# Seismic:
+#   North:
+#     - EQ_North
+#   West:
+#     - EQ_West
+#
+# Lateral:
+#   Wind:
+#     - Wind  # References the Wind load group
+#   Seismic:
+#     - Seismic  # References the Seismic load group
+#
+# The load groups are used in the main.py script to generate load combinations for structural analysis.
+
+Dead:
+  - DL
+  - SDL
+
+Live:
+  Perm:
+    - LL
+  Construction:
+    - LL_Construction
+  Pattern:
+    - LL_Pattern
+
+Wind:
+  North:
+    - WL_Frame_North
+    - WL_Cladding_North
+  West:
+    - WL_Frame_West
+    - WL_Cladding_West
+
+Seismic:
+  North:
+    - EQ_North
+  West:
+    - EQ_West
+
+Lateral:
+  Wind:
+    - Wind  # References the Wind load group
+  Seismic:
+    - Seismic  # References the Seismic load group

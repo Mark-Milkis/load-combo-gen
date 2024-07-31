@@ -1,0 +1,53 @@
+# load_factors.yml
+#
+# This YAML file defines the load factors for various load combinations used in structural analysis.
+# Each load combination is represented as a key, with the corresponding load factors as nested keys.
+#
+# Example:
+# LRFD1:
+#   Dead: 1.4
+#   Soil: 1.4 # Unreferenced load groups will not be used
+#
+# LRFD2:
+#   Dead: 1.2 # Load factor can be applied to the whole group
+#   Live:
+#     Perm: 1.6 # Load factor can be applied to a specific subgroup
+#     Construction: 1.0
+#     Pattern: 1.6
+#
+# LRFD4:
+#   Dead: 1.2
+#   Live:
+#     Perm: 1.0
+#     Pattern: 1.0
+#   Wind: 1.0
+#
+# Lateral-Envelope:
+#   Lateral:
+#     Wind: 1.0
+#     Seismic: 1.0
+#
+# The load factors are used in the main.py script to generate load combinations for structural analysis.
+
+LRFD1:
+  Dead: 1.4
+  Soil: 1.4 # Shown as example, not used in the code
+
+LRFD2:
+  Dead: 1.2
+  Live:
+    Perm: 1.6
+    Construction: 1.0
+    Pattern: 1.6
+
+LRFD4:
+  Dead: 1.2
+  Live:
+    Perm: 1.0
+    Pattern: 1.0
+  Wind: 1.0
+
+Lateral-Envelope:
+  Lateral:
+    Wind: 1.0
+    Seismic: 1.0

@@ -5,8 +5,9 @@ from bigtree import (
     find_attrs,
     shift_nodes,
     preorder_iter,
-    levelorder_iter,
 )
+import pandas as pd
+import yaml
 
 # Each resulting load combination shall be a dictionary with the following structure:
 # {
@@ -18,13 +19,6 @@ from bigtree import (
 # then three load combinations will be created for LRFD2. The name of each combination will be the name of the
 # base load combination, "LRFD2", followed by the name of the sub-group. The load factors will be inherited from the parent group
 # if they are not explicitly defined in the load_factors dictionary.
-
-
-# Iterate through the load_groups dictionary and determine the parent/child relationships between load groups.
-# Leaf nodes are load cases while parent nodes are load groups. Create classes to represent these relationships.
-# the classes should have attributes for the name of the group, the parent group, and the children groups. As well as an attribute for the load factor for each load combination.
-# The class should have a method for retrieving the dictionary of load combinations and load factors. In case a load factor is not explicitly defined, it should inherit the load factor from the parent group.
-# The class should contain a boolean type attribute which dictates if the children nodes should be additive or exclusive in load combinations.
 
 
 def get_promoted_path(self, levels=1, separator="/"):
@@ -42,6 +36,7 @@ def get_promoted_path(self, levels=1, separator="/"):
     return promoted_path
 
 
+# Add the get_promoted_path method to the existing Node class
 Node.get_promoted_path = get_promoted_path
 
 
@@ -66,6 +61,10 @@ class LoadItem(Node):
             return self.parent.get_load_factor()
         else:
             return None
+
+    def inherit_load_factor(self):
+        if self.get_load_factor() is None:
+            self.set_load_factor(self.parent.get_load_factor())
 
     def check_root_is_combination_set(self):
         """
@@ -131,7 +130,7 @@ class LoadCombinationSet(Node):
         super().__init__(name)
 
     @classmethod
-    def create_tree(
+    def create_tree_sets(
         cls, load_group_tree, load_factors, clean_tree=True, expand_tree=False
     ):
         """
@@ -166,7 +165,8 @@ class LoadCombinationSet(Node):
                         subgroup.set_load_factor(subgroup_data)
                 else:
                     group: LoadItem = find_name(load_combination_tree, group_name)
-                    group.set_load_factor(group_data)
+                    if group is not None:
+                        group.set_load_factor(group_data)
 
             if clean_tree:
                 load_combination_tree.clean_tree()
@@ -211,6 +211,7 @@ class LoadCombinationSet(Node):
         branching_nodes = find_attrs(self, "additive", False)
         if branching_nodes == ():
             load_combination_sets[self.root.name] = self
+            self.root.set_attrs({"expanded": True})
         else:
             node = branching_nodes[0]
             if len(node.children) > 1:
@@ -229,6 +230,55 @@ class LoadCombinationSet(Node):
                     load_combination_sets.update(fully_expanded_tree)
 
         return load_combination_sets
+
+    def to_dict(self):
+
+        # Check if the tree has been expanded
+        if self.get_attr("expanded") is None:
+            raise ValueError("Tree must be expanded before converting to dictionary")
+
+        load_case_dict = {}
+        for load_case in self.leaves:
+            load_case_dict[load_case.name] = load_case.get_load_factor()
+
+        combination_dict = {"name": self.name, "load_cases": load_case_dict}
+        return combination_dict
+
+    def to_dataframe(self, df_exist=None):
+
+        # Check if the tree has been expanded
+        if self.get_attr("expanded") is None:
+            raise ValueError("Tree must be expanded before converting to dataframe")
+
+        data = []
+        for load_case in self.leaves:
+            data.append(
+                {
+                    "Load Combination": self.name,
+                    "Load Case": load_case.name,
+                    "Load Factor": load_case.get_load_factor(),
+                }
+            )
+        df = pd.DataFrame(data)
+
+        if df_exist is not None:
+            df = pd.concat([df_exist, df], ignore_index=True)
+
+        return df
+
+    def to_csv(self, file_path="load_combinations.csv"):
+        df = self.to_dataframe()
+        df.to_csv(file_path, index=False)
+
+    @classmethod
+    def set_to_csv(cls, load_combination_sets, file_path="load_combinations.csv"):
+        df = None
+        for (
+            load_combination_name,
+            load_combination_tree,
+        ) in load_combination_sets.items():
+            df = load_combination_tree.to_dataframe(df)
+        df.to_csv(file_path, index=False)
 
 
 if __name__ == "__main__":
@@ -249,46 +299,31 @@ if __name__ == "__main__":
     # Each load combination contains a dictionary of load factors
     # The load factors can be assigned to the entire load group or to individual sub-groups by passing another dictionary
 
-    load_groups = {
-        # Create a load group for all dead loads
-        "Dead": ["DL", "SDL"],
-        "Live": {
-            "Perm": ["LL"],
-            "Construction": ["LL_Construction"],
-            "Pattern": ["LL_Pattern"],
-        },
-        "Wind": {
-            "North": ["WL_Frame_North", "WL_Cladding_North"],
-            "West": ["WL_Frame_West", "WL_Cladding_West"],
-        },
-        "Seismic": {"North": ["EQ_North"], "West": ["EQ_West"]},
-        "Lateral": {
-            "Wind": ["Wind"],  # References the Wind load group
-            "Seismic": ["Seismic"],  # References the Seismic load group
-        },
-    }
+    # Load the load_groups from the YAML file
+    load_groups_filepath = "load_groups.yml"
+    with open(load_groups_filepath, "r") as file:
+        load_groups = yaml.safe_load(file)
 
-    load_factors = {
-        "LRFD1": {"Dead": 1.4},
-        "LRFD2": {
-            "Dead": 1.2,
-            "Live": {"Perm": 1.6, "Construction": 1.0, "Pattern": 1.6},
-        },
-        "LRFD4": {
-            "Dead": 1.2,
-            "Live": {"Perm": 1.0, "Pattern": 1.0},
-            "Wind": 1.0,
-        },
-        "Lateral-Envelope": {"Lateral": {"Wind": 1.0, "Seismic": 1.0}},
-    }
+    # Load the load_factors from the YAML file
+    laod_factors_filepath = "load_factors.yml"
+    with open(laod_factors_filepath, "r") as file:
+        load_factors = yaml.safe_load(file)
+
+    print(
+        f"Using load groups from {load_groups_filepath} and load factors from {laod_factors_filepath}"
+    )
 
     load_group_tree = LoadItem.create_tree(load_groups)
 
-    load_combination_sets = LoadCombinationSet.create_tree(
+    load_combination_sets = LoadCombinationSet.create_tree_sets(
         load_group_tree, load_factors, clean_tree=True, expand_tree=True
     )
 
-    for load_combination_name, load_combination_tree in load_combination_sets.items():
-        load_combination_tree.show(attr_list=["additive", "load_factor"])
+    # Show the number of combinations created
+    print(f"Number of combinations created: {len(load_combination_sets)}")
+
+    csv_file_path = "load_combinations.csv"
+    LoadCombinationSet.set_to_csv(load_combination_sets, csv_file_path)
+    print(f"Load combinations saved to {csv_file_path}")
 
     print("Done")
