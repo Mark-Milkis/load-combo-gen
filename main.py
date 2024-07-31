@@ -305,12 +305,12 @@ if __name__ == "__main__":
         load_groups = yaml.safe_load(file)
 
     # Load the load_factors from the YAML file
-    laod_factors_filepath = "load_factors.yml"
-    with open(laod_factors_filepath, "r") as file:
+    load_factors_filepath = "load_factors.yml"
+    with open(load_factors_filepath, "r") as file:
         load_factors = yaml.safe_load(file)
 
     print(
-        f"Using load groups from {load_groups_filepath} and load factors from {laod_factors_filepath}"
+        f"Using load groups from {load_groups_filepath} and load factors from {load_factors_filepath}"
     )
 
     load_group_tree = LoadItem.create_tree(load_groups)
