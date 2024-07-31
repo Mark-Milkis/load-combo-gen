@@ -1,4 +1,12 @@
-from bigtree import Node, find_name, find_names, find_attrs, shift_nodes, preorder_iter, levelorder_iter
+from bigtree import (
+    Node,
+    find_name,
+    find_names,
+    find_attrs,
+    shift_nodes,
+    preorder_iter,
+    levelorder_iter,
+)
 
 # Each resulting load combination shall be a dictionary with the following structure:
 # {
@@ -18,21 +26,24 @@ from bigtree import Node, find_name, find_names, find_attrs, shift_nodes, preord
 # The class should have a method for retrieving the dictionary of load combinations and load factors. In case a load factor is not explicitly defined, it should inherit the load factor from the parent group.
 # The class should contain a boolean type attribute which dictates if the children nodes should be additive or exclusive in load combinations.
 
-def get_promoted_path(self, levels = 1, separator = "/"):
-    
+
+def get_promoted_path(self, levels=1, separator="/"):
+
     # Get promoted path by breaking up the node path into a list and removing the pre-last n item
 
-    #Check that the levels is positive and less than the depth of the node
+    # Check that the levels is positive and less than the depth of the node
     if levels < 0 or levels >= self.depth:
         raise ValueError("Levels must be positive and less than the depth of the node")
 
     path = self.path_name.split(separator)
-    path = path[:-levels-1]
+    path = path[: -levels - 1]
     path.append(self.name)
     promoted_path = separator.join(path)
     return promoted_path
 
+
 Node.get_promoted_path = get_promoted_path
+
 
 class LoadItem(Node):
     def __init__(self, name, additive=None):
@@ -46,7 +57,7 @@ class LoadItem(Node):
             self.set_attrs({"load_factor": load_factor})
         else:
             raise ValueError("Cannot set load factor if not part of LoadCombinationSet")
-        
+
     def get_load_factor(self):
         load_factor = self.get_attr("load_factor")
         if load_factor is not None:
@@ -55,7 +66,7 @@ class LoadItem(Node):
             return self.parent.get_load_factor()
         else:
             return None
-        
+
     def check_root_is_combination_set(self):
         """
         Check if the root is an instance of LoadCombinationSet.
@@ -120,7 +131,9 @@ class LoadCombinationSet(Node):
         super().__init__(name)
 
     @classmethod
-    def create_tree(cls, load_group_tree, load_factors, clean_tree=True):
+    def create_tree(
+        cls, load_group_tree, load_factors, clean_tree=True, expand_tree=False
+    ):
         """
         Create a new tree structure that contains the load combinations and load factors.
 
@@ -158,7 +171,12 @@ class LoadCombinationSet(Node):
             if clean_tree:
                 load_combination_tree.clean_tree()
 
-            load_combination_sets[load_combination_name] = load_combination_tree
+            tree_dict = {load_combination_name: load_combination_tree}
+
+            if expand_tree:
+                tree_dict = load_combination_tree.expand_nonadditive_nodes()
+
+            load_combination_sets.update(tree_dict)
         return load_combination_sets
 
     def clean_tree(self):
@@ -184,33 +202,34 @@ class LoadCombinationSet(Node):
 
     def expand_nonadditive_nodes(self):
         """
-        Expand non-additive nodes into separate load combinations.
+        Recursively expands non-additive nodes in the tree.
 
-        This method iterates over the tree in a levelorder_iter traversal and expands any non-additive nodes into separate
-        load combinations. The method creates a new load combination for each child of the non-additive node and
-        replaces the non-additive node with the child in the new load combination.
+        Returns:
+            dict: A dictionary containing the load combination sets.
         """
-        #TODO: Fix the issue with nested branching nodes
-        if find_attrs(self, "additive", False) == ():
-            self.show(attr_list=["additive", "load_factor"])
-            # return self
+        load_combination_sets = {}
+        branching_nodes = find_attrs(self, "additive", False)
+        if branching_nodes == ():
+            load_combination_sets[self.root.name] = self
+        else:
+            node = branching_nodes[0]
+            if len(node.children) > 1:
+                for child in node.children:
+                    partially_expanded_tree = self.copy()
+                    new_child_path = child.get_promoted_path(levels=1)
+                    shift_nodes(
+                        partially_expanded_tree,
+                        [child.path_name, node.path_name],
+                        [new_child_path, None],
+                    )
+                    partially_expanded_tree.root.name = f"{self.name}-{child.name}"
+                    fully_expanded_tree = (
+                        partially_expanded_tree.expand_nonadditive_nodes()
+                    )
+                    load_combination_sets.update(fully_expanded_tree)
 
-        for node in levelorder_iter(self):
-            if isinstance(node, LoadItem):
-                if node.get_attr("additive") is False and len(node.children) > 1:
-                    for child in node.children:
-                        # Create a copy of the current tree for each child of the non-additive node
-                        copy = self.copy()
-                        # Get the path of the promoted child node
-                        new_child_path = child.get_promoted_path(levels=1)
-                        #Promote the child node to the parent level and remove the 
-                        shift_nodes(copy, [child.path_name, node.path_name], [new_child_path, None])
-                        # Rename the root node of the copy by appending the selected child node name
-                        copy.root.name = f"{self.name}-{child.name}"
-                        # Recursively expand non-additive nodes in the copy
-                        copy.expand_nonadditive_nodes()
-     
-        
+        return load_combination_sets
+
 
 if __name__ == "__main__":
     # Load groups are a collections of load cases or other load groups organized by sub-groups
@@ -266,10 +285,10 @@ if __name__ == "__main__":
     load_group_tree = LoadItem.create_tree(load_groups)
 
     load_combination_sets = LoadCombinationSet.create_tree(
-        load_group_tree, load_factors, clean_tree=True
+        load_group_tree, load_factors, clean_tree=True, expand_tree=True
     )
 
     for load_combination_name, load_combination_tree in load_combination_sets.items():
-        # print(f"Load Combination: {load_combination_name}")
-        # load_combination_tree.show(attr_list=["additive", "load_factor"])
-        load_combination_tree.expand_nonadditive_nodes()
+        load_combination_tree.show(attr_list=["additive", "load_factor"])
+
+    print("Done")
