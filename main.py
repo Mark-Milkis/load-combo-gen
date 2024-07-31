@@ -47,24 +47,40 @@ class LoadItem(Node):
             self.set_attrs({"additive": additive})
 
     def set_load_factor(self, load_factor):
+        """
+        Sets the load factor for the LoadCombinationSet.
 
+        Args:
+            load_factor (float): The load factor to be set.
+
+        Raises:
+            ValueError: If the LoadCombinationSet is not initialized.
+
+        """
         if self.check_root_is_combination_set():
             self.set_attrs({"load_factor": load_factor})
         else:
             raise ValueError("Cannot set load factor if not part of LoadCombinationSet")
 
     def get_load_factor(self):
-        load_factor = self.get_attr("load_factor")
-        if load_factor is not None:
-            return load_factor
-        elif self.parent is not None and isinstance(self.parent, LoadItem):
-            return self.parent.get_load_factor()
-        else:
-            return None
+            """
+            Retrieves the load factor of the current LoadItem.
 
-    def inherit_load_factor(self):
-        if self.get_load_factor() is None:
-            self.set_load_factor(self.parent.get_load_factor())
+            If the load factor is explicitly set for the current LoadItem, it is returned.
+            If the load factor is not set for the current LoadItem, but the parent LoadItem exists and is an instance of LoadItem class,
+            the load factor is retrieved from the parent LoadItem recursively.
+            If neither the current LoadItem nor its parent has a load factor set, None is returned.
+
+            Returns:
+                The load factor of the current LoadItem, or None if not set.
+            """
+            load_factor = self.get_attr("load_factor")
+            if load_factor is not None:
+                return load_factor
+            elif self.parent is not None and isinstance(self.parent, LoadItem):
+                return self.parent.get_load_factor()
+            else:
+                return None
 
     def check_root_is_combination_set(self):
         """
@@ -79,7 +95,12 @@ class LoadItem(Node):
             return False
 
     def check_chid_load_factors(self):
-        # Check if any of the children have load factors defined
+        """
+        Check if any of the children have load factors defined.
+
+        Returns:
+            bool: True if any child has load factors defined, False otherwise.
+        """
         for child in self.children:
             if isinstance(child, LoadItem):
                 if child.get_load_factor() is not None:
@@ -91,6 +112,15 @@ class LoadItem(Node):
 
     @classmethod
     def create_tree(cls, load_groups):
+        """
+        Creates a tree hierarchy based on the provided load groups.
+
+        Args:
+            load_groups (dict): A dictionary containing the load groups.
+
+        Returns:
+            LoadItem: The root node of the created tree hierarchy.
+        """
         load_group_hierarchy = cls("Root")
         for group_name, group_data in load_groups.items():
             if isinstance(group_data, dict):
@@ -142,6 +172,7 @@ class LoadCombinationSet(Node):
             load_factors (dict): A dictionary containing the load factors for each load combination.
             clean_tree (bool, optional): Flag indicating whether to clean the tree after assigning load factors.
                 Defaults to True.
+            expand_tree (bool, optional): Flag indicating whether to expand the tree after assigning load factors.
 
         Returns:
             dict: A dictionary containing the load combination sets, where the keys are the load combination names
@@ -232,6 +263,15 @@ class LoadCombinationSet(Node):
         return load_combination_sets
 
     def to_dict(self):
+        """
+        Converts the tree to a dictionary representation.
+
+        Raises:
+            ValueError: If the tree has not been expanded.
+
+        Returns:
+            dict: A dictionary representation of the tree.
+        """
 
         # Check if the tree has been expanded
         if self.get_attr("expanded") is None:
@@ -245,6 +285,18 @@ class LoadCombinationSet(Node):
         return combination_dict
 
     def to_dataframe(self, df_exist=None):
+        """
+        Converts the load combination tree to a pandas DataFrame.
+
+        Args:
+            df_exist (pandas.DataFrame, optional): An existing DataFrame to concatenate the converted data to.
+
+        Returns:
+            pandas.DataFrame: The converted DataFrame.
+
+        Raises:
+            ValueError: If the tree has not been expanded before converting to a DataFrame.
+        """
 
         # Check if the tree has been expanded
         if self.get_attr("expanded") is None:
@@ -266,12 +318,15 @@ class LoadCombinationSet(Node):
 
         return df
 
-    def to_csv(self, file_path="load_combinations.csv"):
-        df = self.to_dataframe()
-        df.to_csv(file_path, index=False)
-
     @classmethod
     def set_to_csv(cls, load_combination_sets, file_path="load_combinations.csv"):
+        """
+        Convert the given load combination sets to a CSV file.
+
+        Args:
+            load_combination_sets (dict): A dictionary containing load combination names as keys and load combination trees as values.
+            file_path (str, optional): The file path to save the CSV file. Defaults to "load_combinations.csv".
+        """
         df = None
         for (
             load_combination_name,
